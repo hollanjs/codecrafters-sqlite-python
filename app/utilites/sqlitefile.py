@@ -1,9 +1,19 @@
-# class TableBTree
+from __future__ import annotations
+from typing import TYPE_CHECKING
 
+from .sqlitebtree import init_btree_header
+
+if TYPE_CHECKING:
+    from .sqlitebtree import SQLiteBTreePageHeader
+    from .sqliteobservers import SQLiteHeaderObserver
 
 class SQLiteHeaderData:
     __dbfile_path__: str
     __db_header_bytes__: bytes
+
+    __observers__: list[SQLiteHeaderObserver] = []
+
+    __schema_table__: SQLiteBTreePageHeader
 
     """
     SQLite header doc - for offset and size
@@ -34,7 +44,16 @@ class SQLiteHeaderData:
         "__SQLITE_VERSION_NUMBER__": None
     }
 
+    def __update_observers__(self):
+        for observer in self.__observers__:
+            observer.update_header_data(self)
 
+    def register_header_observer(self, observer: SQLiteHeaderObserver):
+        self.__observers__.append(observer)
+
+    def unregister_header_observer(self, observer: SQLiteHeaderObserver):
+        self.__observers__.remove(observer)
+        
     def __init__(self, file_path: str):
         # quick check the header for magic string
         self.verify_magic_string(file_path)
@@ -44,6 +63,7 @@ class SQLiteHeaderData:
     def update_header_properties(self):
         self.__update_dbfile_header_bytes__()
         self.__update_dbfile_header_data__()
+        self.__update_observers__()
 
     def __update_dbfile_header_bytes__(self):
         assert self.dbfile_path is not None
@@ -83,9 +103,11 @@ class SQLiteHeaderData:
         header["__version_valid_for__"]                 = int.from_bytes(h_bytes[92:96])      #int(db_bytes.read(4).hex(), 16)
         header["__SQLITE_VERSION_NUMBER__"]             = int.from_bytes(h_bytes[96:100])      #int(db_bytes.read(4).hex(), 16)
 
-    def show_dbfile_parameters(self):
+        self.__schema_table__ = init_btree_header(int.from_bytes(h_bytes[100:101]), self)
+
+    def __str__(self):
         import json
-        print(json.dumps(self.__dbfile_header_info__, indent=4))
+        return json.dumps(self.__dbfile_header_info__, indent=4)
 
     def verify_magic_string(self, file_path):
         MAGIC_STRING = "SQLite format 3\000"
@@ -93,6 +115,10 @@ class SQLiteHeaderData:
             assert dbfile.read(16).decode('ascii') == MAGIC_STRING
 
 
+
+
 if __name__ == "__main__":
     sampledb = SQLiteHeaderData("sample.db")
-    sampledb.show_dbfile_parameters()
+    print(f"database page size: {sampledb.__dbfile_header_info__["__page_size__"]}")
+    print(f"Sample.db has {sampledb.__schema_table__.cell_num} tables")
+
