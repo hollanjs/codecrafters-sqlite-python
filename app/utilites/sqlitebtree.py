@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 from .sqliteobservers import SQLiteHeaderObserver
 
 if TYPE_CHECKING:
-    from .sqlitefile import SQLiteHeaderData
+    from .sqlitefile import SQLiteFileHeaderData
 
 class SQLiteBTreePageHeader(SQLiteHeaderObserver):
     __btree_bytes__: bytes
@@ -18,11 +18,11 @@ class SQLiteBTreePageHeader(SQLiteHeaderObserver):
     def has_free_blocks(self):
         self.first_free_block != 0
 
-    def __init__(self, header_data: SQLiteHeaderData):
+    def __init__(self, header_data: SQLiteFileHeaderData):
         super().__init__(header_data)
         if header_data.__dbfile_header_info__["__magic_string__"] is not None:
             self.__byte_offset__ = 100
-        self.__btree_bytes__ = self.__header_data__.__db_header_bytes__[self.__byte_offset__:]
+        self.__btree_bytes__ = self.__header_data__.__db_file_bytes__[self.__byte_offset__:]
         self.__parse_header__()
 
     def __parse_header__(self):
@@ -48,7 +48,7 @@ class SQLiteBTreePageHeader(SQLiteHeaderObserver):
 class SQLiteInteriorIndexBTree(SQLiteBTreePageHeader):
     right_most_pointer: int
 
-    def __init__(self, header_data: SQLiteHeaderData):
+    def __init__(self, header_data: SQLiteFileHeaderData):
         super().__init__(header_data)
 
     def __parse_header__(self):
@@ -58,7 +58,7 @@ class SQLiteInteriorIndexBTree(SQLiteBTreePageHeader):
 class SQLiteInteriorTableBTree(SQLiteBTreePageHeader):
     right_most_pointer: int
 
-    def __init__(self, header_data: SQLiteHeaderData):
+    def __init__(self, header_data: SQLiteFileHeaderData):
         super().__init__(header_data)
 
     def __parse_header__(self):
@@ -66,20 +66,20 @@ class SQLiteInteriorTableBTree(SQLiteBTreePageHeader):
         self.right_most_pointer = int.from_bytes(self.__btree_bytes__[8:12])
 
 class SQLiteLeafIndexBTree(SQLiteBTreePageHeader):
-    def __init__(self, header_data: SQLiteHeaderData):
+    def __init__(self, header_data: SQLiteFileHeaderData):
         super().__init__(header_data)
 
 class SQLiteLeafTableBTree(SQLiteBTreePageHeader):
-    def __init__(self, header_data: SQLiteHeaderData):
+    def __init__(self, header_data: SQLiteFileHeaderData):
         super().__init__(header_data)
 
 
 class SQLiteSchemaTable(SQLiteHeaderObserver):
-    def __init__(self, header_data: SQLiteHeaderData):
+    def __init__(self, header_data: SQLiteFileHeaderData):
         super().__init__(header_data)
     
 
-def init_btree_header(btree_value: int, header_data: SQLiteHeaderData):
+def init_btree_header(btree_value: int, header_data: SQLiteFileHeaderData):
     assert btree_value in [2, 5, 10, 13]
     match btree_value:
         case  2: return SQLiteInteriorIndexBTree(header_data)
